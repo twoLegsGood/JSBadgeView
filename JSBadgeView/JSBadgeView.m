@@ -21,8 +21,8 @@
  */
 
 #import "JSBadgeView.h"
-
-#import <QuartzCore/QuartzCore.h>
+#import <FontAwesomeKit/FontAwesomeKit.h>
+//#import <QuartzCore/QuartzCore.h>
 #include <mach-o/dyld.h>
 
 #if !__has_feature(objc_arc)
@@ -41,10 +41,16 @@
     #define JSBadgeViewSilenceDeprecatedMethodEnd()
 #endif
 
+//static const CGFloat JSBadgeViewShadowRadius = 1.0f;
+//static const CGFloat JSBadgeViewHeight = 16.0f;
+//static const CGFloat JSBadgeViewTextSideMargin = 8.0f;
+//static const CGFloat JSBadgeViewCornerRadius = 10.0f;
+
 static const CGFloat JSBadgeViewShadowRadius = 1.0f;
-static const CGFloat JSBadgeViewHeight = 16.0f;
-static const CGFloat JSBadgeViewTextSideMargin = 8.0f;
+//static const CGFloat JSBadgeViewHeight = 20.0f;
+static const CGFloat JSBadgeViewTextSideMargin = 11.0f;
 static const CGFloat JSBadgeViewCornerRadius = 10.0f;
+
 
 // Thanks to Peter Steinberger: https://gist.github.com/steipete/6526860
 static BOOL JSBadgeViewIsUIKitFlatMode(void)
@@ -67,7 +73,38 @@ static BOOL JSBadgeViewIsUIKitFlatMode(void)
     return isUIKitFlatMode;
 }
 
-@implementation JSBadgeView
+@implementation UIColor (LightAndDark)
+
+- (UIColor *)lighterColor
+{
+    CGFloat h, s, b, a;
+    if ([self getHue:&h saturation:&s brightness:&b alpha:&a])
+        return [UIColor colorWithHue:h
+                          saturation:s
+                          brightness:MIN(b * 1.3, 1.0)
+                               alpha:a];
+    return nil;
+}
+
+- (UIColor *)darkerColor
+{
+    CGFloat h, s, b, a;
+    if ([self getHue:&h saturation:&s brightness:&b alpha:&a])
+        return [UIColor colorWithHue:h
+                          saturation:s
+                          brightness:b * 0.75
+                               alpha:a];
+    return nil;
+}
+@end
+
+@implementation JSBadgeView {
+    CGFloat JSBadgeViewHeight;
+    CGFloat voicenoteSize;
+    CGFloat cameraSize;
+    CGFloat textnoteSize;
+    CGSize newSize;
+}
 
 + (void)applyCommonStyle
 {
@@ -75,9 +112,10 @@ static BOOL JSBadgeViewIsUIKitFlatMode(void)
 
     badgeViewAppearanceProxy.backgroundColor = UIColor.clearColor;
     badgeViewAppearanceProxy.badgeAlignment = JSBadgeViewAlignmentTopRight;
-    badgeViewAppearanceProxy.badgeBackgroundColor = UIColor.redColor;
+    badgeViewAppearanceProxy.badgeBackgroundColor = UIColor.clearColor;
     badgeViewAppearanceProxy.badgeTextFont = [UIFont boldSystemFontOfSize:UIFont.systemFontSize];
     badgeViewAppearanceProxy.badgeTextColor = UIColor.whiteColor;
+    
 }
 
 + (void)applyLegacyStyle
@@ -108,6 +146,7 @@ static BOOL JSBadgeViewIsUIKitFlatMode(void)
     if (self == JSBadgeView.class)
     {
         [self applyCommonStyle];
+//        [self applyLegacyStyle];
 
         if (JSBadgeViewIsUIKitFlatMode())
         {
@@ -149,6 +188,25 @@ static BOOL JSBadgeViewIsUIKitFlatMode(void)
 
     const CGFloat marginToDrawInside = [self marginToDrawInside];
     const CGFloat viewWidth = textWidth + JSBadgeViewTextSideMargin + (marginToDrawInside * 2);
+    if ([self.badgeText isEqualToString:@" "]) {
+        JSBadgeViewHeight = 16;
+    } else {
+        JSBadgeViewHeight = 20;
+    }
+    
+    if (_isSegmentBadge) {
+        JSBadgeViewHeight += 2;
+    }
+    if (_isNumber) {
+        JSBadgeViewHeight -= 1;
+    }
+    
+    newSize = CGSizeMake(60.f, 26.f);
+    voicenoteSize = 20;
+    cameraSize = 24;
+    textnoteSize = 22;
+    
+    
     const CGFloat viewHeight = JSBadgeViewHeight + (marginToDrawInside * 2);
     
     const CGFloat superviewWidth = superviewBounds.size.width;
@@ -195,7 +253,7 @@ static BOOL JSBadgeViewIsUIKitFlatMode(void)
             newFrame.origin.y = (superviewHeight - viewHeight) / 2.0f;
             break;
         default:
-            NSAssert(NO, @"Unimplemented JSBadgeAligment type %lul", (unsigned long)self.badgeAlignment);
+            NSAssert(NO, @"Unimplemented JSBadgeAligment type %lu", self.badgeAlignment);
     }
     
     newFrame.origin.x += _badgePositionAdjustment.x;
@@ -399,28 +457,270 @@ static BOOL JSBadgeViewIsUIKitFlatMode(void)
         }
         CGContextRestoreGState(ctx);
         
-        /* Text */
-
-        CGContextSaveGState(ctx);
-        {
-            CGContextSetFillColorWithColor(ctx, self.badgeTextColor.CGColor);
-            CGContextSetShadowWithColor(ctx, self.badgeTextShadowOffset, 1.0, self.badgeTextShadowColor.CGColor);
-            
-            CGRect textFrame = rectToDraw;
-            const CGSize textSize = [self sizeOfTextForCurrentSettings];
-            
-            textFrame.size.height = textSize.height;
-            textFrame.origin.y = rectToDraw.origin.y + ceilf((rectToDraw.size.height - textFrame.size.height) / 2.0f);
-
-            JSBadgeViewSilenceDeprecatedMethodStart();
-            [self.badgeText drawInRect:textFrame
-                              withFont:self.badgeTextFont
-                         lineBreakMode:NSLineBreakByClipping
-                             alignment:NSTextAlignmentCenter];
-            JSBadgeViewSilenceDeprecatedMethodEnd();
+        if (self.badgeText.length > 2) {
+            if ([self.badgeText isEqualToString:@"VVV"]) {
+                [self voicenoteOnly:ctx withRect:rectToDraw];
+            } else if ([self.badgeText isEqualToString:@"CCC"]) {
+                [self cameraOnly:ctx withRect:rectToDraw];
+            } else if ([self.badgeText isEqualToString:@"TTT"]) {
+                [self textnoteOnly:ctx withRect:rectToDraw];
+            } else if ([self.badgeText isEqualToString:@"VVcc"]) {
+                [self voicenoteCamera:ctx withRect:rectToDraw];
+            } else if ([self.badgeText isEqualToString:@"VVTt"]) {
+                [self voicenoteTextnote:ctx withRect:rectToDraw];
+            } else if ([self.badgeText isEqualToString:@"CCTT"]) {
+                [self cameraTextnote:ctx withRect:rectToDraw];
+            } else if ([self.badgeText isEqualToString:@"Vvcctt"]) {
+                [self allNotes:ctx withRect:rectToDraw];
+            }
         }
-        CGContextRestoreGState(ctx);
+        
+        if (_isNumber && _badgeText.length > 0) {
+            
+            /* Text */
+            
+            CGContextSaveGState(ctx);
+            {
+                CGContextSetFillColorWithColor(ctx, self.badgeTextColor.CGColor);
+                CGContextSetShadowWithColor(ctx, self.badgeTextShadowOffset, 1.0, self.badgeTextShadowColor.CGColor);
+                
+                CGRect textFrame = rectToDraw;
+                const CGSize textSize = [self sizeOfTextForCurrentSettings];
+                
+                textFrame.size.height = textSize.height;
+                textFrame.origin.y = rectToDraw.origin.y + ceilf((rectToDraw.size.height - textFrame.size.height) / 2.0f);
+                
+                JSBadgeViewSilenceDeprecatedMethodStart();
+                [self.badgeText drawInRect:textFrame
+                                  withFont:self.badgeTextFont
+                             lineBreakMode:NSLineBreakByClipping
+                                 alignment:NSTextAlignmentCenter];
+                JSBadgeViewSilenceDeprecatedMethodEnd();
+            }
+            CGContextRestoreGState(ctx);
+        }
     }
 }
 
+-(UIColor*)voicenoteColor {
+//    if (_dimVoiceIcon == YES) {
+//        NSLog(@"voice Icon returning dimmed");
+////        return [self.badgeTextColor darkerColor];
+//        self.badgeTextColor = [UIColor colorWithWhite:0.2f alpha:0.5f];
+//        return [UIColor colorWithWhite:0.2f alpha:0.5f];
+//    } else {
+        return self.badgeTextColor;
+//    }
+}
+
+-(UIColor*)cameraColor {
+//    if (_dimCameraIcon == YES) {
+//        NSLog(@"camera Icon returning dimmed");
+//        self.badgeTextColor = [UIColor colorWithWhite:0.2f alpha:0.5f];
+//        return [UIColor colorWithWhite:0.2f alpha:0.5f];
+////        return [self.badgeTextColor darkerColor];
+//    } else {
+        return self.badgeTextColor;
+//    }
+}
+
+-(UIColor*)textnoteColor {
+//    if (_dimTextIcon == YES) {
+////        return [self.badgeTextColor darkerColor];
+//        NSLog(@"text Icon returning dimmed");
+//        self.badgeTextColor = [UIColor colorWithWhite:0.2f alpha:0.5f];
+//        return [UIColor colorWithWhite:0.2f alpha:0.5f];
+//    } else {
+        return self.badgeTextColor;
+//    }
+}
+
+-(void)voicenoteOnly:(CGContextRef)ctx withRect:(CGRect)rect {
+    NSInteger xF = -11;
+    NSInteger yF = -3;
+    if (_isSegmentBadge) {
+        xF += 2;
+        yF += 3;
+    }
+    
+    FAKIonIcons* mic = [FAKIonIcons micAIconWithSize:voicenoteSize + 1];
+    [mic addAttribute:NSForegroundColorAttributeName value:[self voicenoteColor]];
+    UIImage *micImage = [mic imageWithSize:newSize];
+    CGContextSaveGState(ctx); {
+        [micImage drawInRect:CGRectMake(xF,yF,newSize.width,newSize.height)];
+        UIGraphicsEndImageContext();
+    }
+    CGContextRestoreGState(ctx);
+}
+
+-(void)cameraOnly:(CGContextRef)ctx withRect:(CGRect)rect {
+    NSInteger xF = -9;
+    NSInteger yF = -3;
+    if (_isSegmentBadge) {
+        xF += 2;
+        yF += 2;
+    }
+    
+    FAKIonIcons* camera = [FAKIonIcons iosCameraIconWithSize:cameraSize + 1];
+    [camera addAttribute:NSForegroundColorAttributeName value:[self cameraColor]];
+    UIImage *image = [camera imageWithSize:newSize];
+    CGContextSaveGState(ctx); {
+        [image drawInRect:CGRectMake(xF,yF,newSize.width,newSize.height)];
+        UIGraphicsEndImageContext();
+    }
+    CGContextRestoreGState(ctx);
+}
+
+-(void)textnoteOnly:(CGContextRef)ctx withRect:(CGRect)rect {
+    NSInteger xF = -10;
+    NSInteger yF = -3;
+    if (_isSegmentBadge) {
+        xF += 2;
+        yF += 3;
+    }
+    
+    FAKIonIcons* textNote = [FAKIonIcons iosComposeIconWithSize:textnoteSize + 1];
+    [textNote addAttribute:NSForegroundColorAttributeName value:[self textnoteColor]];
+    UIImage *textNoteImage = [textNote imageWithSize:newSize];
+    CGContextSaveGState(ctx); {
+        [textNoteImage drawInRect:CGRectMake(xF,yF,newSize.width,newSize.height)];
+        UIGraphicsEndImageContext();
+    }
+    CGContextRestoreGState(ctx);
+}
+
+-(void)voicenoteCamera:(CGContextRef)ctx withRect:(CGRect)rect {
+    NSInteger xFvoice = -18;
+    NSInteger yFvoice = -3;
+    NSInteger xFcamera = 1;
+    NSInteger yFcamera = -3;
+    if (_isSegmentBadge) {
+        xFvoice += 2;
+        yFvoice += 3;
+        xFcamera += 2;
+        yFcamera += 3;
+    }
+    
+    FAKIonIcons* plus = [FAKIonIcons iosCameraIconWithSize:cameraSize];
+    [plus addAttribute:NSForegroundColorAttributeName value:[self cameraColor]];
+
+    UIImage *image = [plus imageWithSize:newSize];
+    CGContextSaveGState(ctx); {
+        FAKIonIcons* mic = [FAKIonIcons micAIconWithSize:voicenoteSize];
+        [mic addAttribute:NSForegroundColorAttributeName value:[self voicenoteColor]];
+        UIImage *micImage = [mic imageWithSize:newSize];
+        [micImage drawInRect:CGRectMake(xFvoice,yFvoice,newSize.width,newSize.height)];
+        
+        [image drawInRect:CGRectMake(xFcamera,yFcamera,newSize.width,newSize.height)];
+        UIImage *newImage = UIGraphicsGetImageFromCurrentImageContext();
+        [newImage drawInRect:rect];
+        UIGraphicsEndImageContext();
+    }
+    CGContextRestoreGState(ctx);
+}
+
+-(void)voicenoteTextnote:(CGContextRef)ctx withRect:(CGRect)rect {
+    NSInteger xFvoice = -18;
+    NSInteger yFvoice = -3;
+    NSInteger xFtext = -1;
+    NSInteger yFtext = -3;
+    NSInteger textIconScaleFactor = 0;
+    if (_isSegmentBadge) {
+        xFvoice += 2;
+        yFvoice += 3;
+        xFtext += 2;
+        yFtext += 3;
+        textIconScaleFactor = -1;
+    }
+    
+    FAKIonIcons* plus = [FAKIonIcons iosComposeIconWithSize:textnoteSize + textIconScaleFactor];
+    [plus addAttribute:NSForegroundColorAttributeName value:[self textnoteColor]];
+    UIImage *image = [plus imageWithSize:newSize];
+    CGContextSaveGState(ctx); {
+        FAKIonIcons* mic = [FAKIonIcons micAIconWithSize:voicenoteSize];
+        [mic addAttribute:NSForegroundColorAttributeName value:[self voicenoteColor]];
+        UIImage *micImage = [mic imageWithSize:newSize];
+        [micImage drawInRect:CGRectMake(xFvoice,yFvoice,newSize.width,newSize.height)];
+        
+        [image drawInRect:CGRectMake(xFtext,yFtext,newSize.width,newSize.height)];
+        UIImage *newImage = UIGraphicsGetImageFromCurrentImageContext();
+        [newImage drawInRect:rect];
+        UIGraphicsEndImageContext();
+    }
+    CGContextRestoreGState(ctx);
+    
+}
+
+-(void)cameraTextnote:(CGContextRef)ctx withRect:(CGRect)rect {
+    NSInteger xFcamera = -14;
+    NSInteger yFcamera = -3;
+    NSInteger xFtext = 5;
+    NSInteger yFtext = -3;
+    if (_isSegmentBadge) {
+        xFcamera += 2;
+        yFcamera += 3;
+        xFtext += 2;
+        yFtext += 3;
+    }
+    
+    FAKIonIcons* plus = [FAKIonIcons iosComposeIconWithSize:textnoteSize];
+    [plus addAttribute:NSForegroundColorAttributeName value:[self textnoteColor]];
+    UIImage *image = [plus imageWithSize:newSize];
+    CGContextSaveGState(ctx); {
+        FAKIonIcons* mic = [FAKIonIcons iosCameraIconWithSize:cameraSize];
+        [mic addAttribute:NSForegroundColorAttributeName value:[self cameraColor]];
+        UIImage *micImage = [mic imageWithSize:newSize];
+        [micImage drawInRect:CGRectMake(xFcamera,yFcamera,newSize.width,newSize.height)];
+        
+        [image drawInRect:CGRectMake(xFtext,yFtext,newSize.width,newSize.height)];
+        UIImage *newImage = UIGraphicsGetImageFromCurrentImageContext();
+        [newImage drawInRect:rect];
+        UIGraphicsEndImageContext();
+    }
+    CGContextRestoreGState(ctx);
+    
+}
+
+-(void)allNotes:(CGContextRef)ctx withRect:(CGRect)rect {
+    
+    NSInteger xFvoice = -20;
+    NSInteger yFvoice = -3;
+    NSInteger xFcamera = 11;
+    NSInteger yFcamera = -3;
+    NSInteger xFtext = -5;
+    NSInteger yFtext = -3;
+    NSInteger voiceIconScaleFactor = 0;
+    if (_isSegmentBadge) {
+        xFvoice += 1;
+        yFvoice += 3;
+        xFcamera += 1.5;
+        yFcamera += 3;
+        xFtext += 1;
+        yFtext += 3;
+        voiceIconScaleFactor = -1;
+    }
+    
+    FAKIonIcons* plus = [FAKIonIcons iosCameraIconWithSize:cameraSize - 1];
+    [plus addAttribute:NSForegroundColorAttributeName value:[self cameraColor]];
+    UIImage *image = [plus imageWithSize:newSize];
+    CGContextSaveGState(ctx); {
+        
+        FAKIonIcons* mic = [FAKIonIcons micAIconWithSize:voicenoteSize + voiceIconScaleFactor];
+        [mic addAttribute:NSForegroundColorAttributeName value:[self voicenoteColor]];
+        UIImage *micImage = [mic imageWithSize:newSize];
+        [micImage drawInRect:CGRectMake(xFvoice,yFvoice,newSize.width,newSize.height)];
+        
+        FAKIonIcons* textNote = [FAKIonIcons iosComposeIconWithSize:textnoteSize - 1];
+        [textNote addAttribute:NSForegroundColorAttributeName value:[self textnoteColor]];
+        UIImage *textNoteImage = [textNote imageWithSize:newSize];
+        [textNoteImage drawInRect:CGRectMake(xFtext,yFtext,newSize.width,newSize.height)];
+        
+        [image drawInRect:CGRectMake(xFcamera,yFcamera,newSize.width,newSize.height)];
+        UIImage *newImage = UIGraphicsGetImageFromCurrentImageContext();
+        [newImage drawInRect:rect];
+        UIGraphicsEndImageContext();
+    }
+    CGContextRestoreGState(ctx);
+    
+}
 @end
