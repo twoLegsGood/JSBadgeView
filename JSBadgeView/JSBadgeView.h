@@ -51,6 +51,12 @@ typedef NS_ENUM(NSUInteger, JSBadgeViewAlignment)
 
 @property (nonatomic, strong) UIColor *badgeBackgroundColor UI_APPEARANCE_SELECTOR;
 
+@property BOOL dimVoiceIcon;
+@property BOOL dimCameraIcon;
+@property BOOL dimTextIcon;
+@property BOOL isSegmentBadge;
+@property BOOL isNumber;
+
 /**
  * Color of the overlay circle at the top. Default is semi-transparent white.
  */
